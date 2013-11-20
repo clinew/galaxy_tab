@@ -1,0 +1,82 @@
+\documentclass{article}
+
+\usepackage{listings}
+
+\lstset{
+	basicstyle=\ttfamily,
+	breakatwhitespace=false,
+	breaklines=true,
+	keepspaces=true
+}
+
+\begin{document}
+
+\section{Summary}
+
+The Samsung Galaxy Tab appears to be beyond repair. The suspected cause of failure is a hardware issue with an internal SD card, though there is also an issue with remote debugging via \texttt{adb}. ClockworkMod (CWM) Recovery v6.0.1.2 was successfully installed on the ROM, though it was not possible to install a working version of Cyanogen Mod.
+
+\section{Issues}
+
+The three main issues worth mentioning that cropped up during this hack-a-thon are the issues that occurr at start-up (obviously; otherwise the phone would be working), when in CWM Recovery, and when trying to debug via \texttt{adb}. The latter is probably unrelated to the former, while the middle one is the suspected cause of the first one.
+
+\subsection{Start-up}
+
+After powering on the device, the CyanogenMod logo appears followed by the start-up animation. After about 30 seconds to 1 minute loading a notification window pops up with an error message reading ``Unfortunately, the process com.andriod.phone has stopped." and appearing over a black background with the title ``Encryption unsuccessful'' and an associated error message instructing a ``factory reset''. The only option at this point is to either shut down or restart the tablet.
+
+\subsection{Recovery}
+
+Installing a zip from the removable SD card appears at first to be successful; the machine begins installing and then reboots (as expected?), but then proceeds to the start-up error mentioned in the previous section. There appears to be no issues either reading from or writing to the removable SD card. Results are the same with both the latest stable versions of CyanogenMod (\texttt{cm-9.1.0-p1c.zip} and \texttt{cm-9.0.0-p1c.zip}).
+
+The more interesting results occur in the \texttt{mounts and storage} section of the CWM Recovery tool. Formatting any of the five paths listed (\texttt{/boot}, \texttt{/cache}, \texttt{/data}, \texttt{/system}, or \texttt{/sdcard}) succeeds; however, when trying to mount the four available paths after formatting them, \texttt{/cache}, \texttt{/system}, and \texttt{/sdcard} succeed, while mounting \texttt{/data} fails. Exporting \texttt{/tmp/recovery.log} to the removable SD card and then viewing its contents shows the following log data from formatting:
+\begin{lstlisting}
+Formatting /data...
+Creating filesystem with parameters:
+    Size: 1319092224
+    Block size: 4096
+    Blocks per group: 32768
+    Inodes per group: 8064
+    Inode size: 256
+    Journal blocks: 5031
+    Label: 
+    Blocks: 322044
+    Block groups: 10
+    Reserved block group size: 79
+Created filesystem with 11/80640 inodes and 10580/322044 blocks
+warning: wipe_block_device: Discard failed
+\end{lstlisting}
+Trying to mount the filesystem right afterwards shows:
+\begin{lstlisting}
+W:failed to mount /dev/block/mmcblk0p2 (Invalid argument)
+Error mounting /data!
+\end{lstlisting}
+This message implies that the location of \texttt{/data} has become WORN (Write Once, Read Never), and is therefore now unusable (the same error message appears when trying to mount an unformatted filesystem via \texttt{busybox}). For extra information, the recovery filesystem table is:
+\begin{lstlisting}
+recovery filesystem table
+=========================
+  0 /tmp ramdisk (null) (null) 0
+  1 /boot mtd boot (null) 0
+  2 /recovery mtd recovery (null) 0
+  3 /cache yaffs2 cache (null) 0
+  4 /data ext4 /dev/block/mmcblk0p2 (null) -16384
+  5 /system yaffs2 system (null) 0
+  6 /sdcard vfat /dev/block/mmcblk1p1 (null) 0
+
+W:Unable to get recovery.fstab info for /datadata during fstab generation!
+W:Unable to get recovery.fstab info for /emmc during fstab generation!
+W:Unable to get recovery.fstab info for /sd-ext during fstab generation!
+\end{lstlisting}
+Note what appears to be an error (-16384) at the \texttt{/data} location. The error number does not appear to be associated with an \texttt{errno} value.
+
+\subsection{Remote Debug}
+
+Perhaps the most frustarting issue is not being able to remotely debug the device. Connecting the device to the computer and running \texttt{adb devices} oftentimes produces the output \texttt{????????????    offline}, but will sometimes identify the device; however, trying to run \texttt{adb shell} ends up resulting in an error communicating with the device (the error depends on the current status of \texttt{adb devices}, which sometimes fluctuates). Trying to mount the removable SD card from the computer using CWM Recovery results in a multiple minute-long mount time then writing to the SD card shows erorrs in the kernel with \texttt{errno -110} (ETIMEDOUT).
+
+Yet, despite not being able to use \texttt{adb} with the device, using \texttt{heimdall} to flash a kernel and \texttt{recovery.bin} worked without any issues. I do not understand why this is.
+
+Scouring the web once showed an e-mail from the esteemed Greg KH mentioning that the cables that come with Samsung Galaxy Tablets sometimes have ``issues''; unfortunately, another blog mentioned that the cable for the Galaxy Tab is proprietary, so finding another, working cable to test this hypothesis is non-trivial.
+
+\section{Conclusion}
+
+The probable cause of failure for the Samsung Galaxy Tab is an internal SD card failure. It is also difficult to remotely debug the device via shell due to a suspected fault in the cable. Suggested repairs would be to either replace the internal SD card or to find a known working cable and to try and debug from it.
+
+\end{document}
